@@ -1,0 +1,8 @@
+{
+  "params": {
+    "learning_rate": 0.05,
+    "max_depth": 10,
+    "n_estimators": 500
+  },
+  "log_target": false
+}

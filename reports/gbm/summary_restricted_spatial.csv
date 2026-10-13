@@ -1,0 +1,2 @@
+set,accuracy,f1_macro,f1_weighted,f1_near,f1_far,precision_near,recall_near,auc,mae,mae_near,median_ae_near,mae_restricted,median_ae_restricted
+spatial,0.902,0.887,0.9008,0.8492,0.9247,0.8868,0.823,0.9525,770.6412,359.7294,139.8004,128.4782,94.535

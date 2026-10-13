@@ -1,0 +1,38 @@
+{
+  "args": {
+    "epochs": 8,
+    "bs": 128,
+    "lr": 0.002,
+    "width": 32,
+    "dropout": 0.3,
+    "context": 5,
+    "reg_weight": 1.0,
+    "gain_aug": 0.1,
+    "pos_weight": false,
+    "reg_near_only": false,
+    "days": [
+      "2023-06-16",
+      "2023-06-20"
+    ],
+    "seed": 0,
+    "tag": "trial_c5_gpu",
+    "save_model": false,
+    "gpu_data": true,
+    "verbose": false
+  },
+  "mean": {
+    "accuracy": 0.909,
+    "f1_macro": 0.8982,
+    "f1_weighted": 0.9074,
+    "f1_near": 0.8652,
+    "f1_far": 0.9313,
+    "precision_near": 0.9312,
+    "recall_near": 0.8082,
+    "auc": 0.955,
+    "mae": 700.1359,
+    "mae_near": 282.2971,
+    "median_ae_near": 115.6144,
+    "mae_restricted": 282.2971,
+    "median_ae_restricted": 115.6144
+  }
+}

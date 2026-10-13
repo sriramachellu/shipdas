@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cable Vessel Replay</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc;
+    --truth: #8a8a84; --pred: #2563eb; --prob: #d9480f; --near: rgba(217, 72, 15, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1e1e1c; --ink: #ecebe6; --muted: #9a9993; --line: #34332f;
+      --truth: #9a9993; --pred: #6ea0ff; --prob: #ff8a4c; --near: rgba(255, 138, 76, 0.16);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+           padding: 14px; margin-bottom: 14px; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; }
+  @media (max-width: 760px) { .row { grid-template-columns: 1fr; } }
+  canvas { width: 100%; display: block; }
+  .controls { display: flex; gap: 10px; align-items: center; }
+  input[type=range] { flex: 1; }
+  button { background: var(--ink); color: var(--bg); border: 0; border-radius: 6px;
+           padding: 6px 14px; font: inherit; cursor: pointer; }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .big { font-size: 28px; font-weight: 600; }
+  .legend { color: var(--muted); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+  .sw { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Vessel detection replay, held-out day __DAY__</h1>
+  <p class="sub">Predictions from a CNN that never saw this day. Ground truth is the closest AIS-reported vessel.</p>
+
+  <div class="panel">
+    <canvas id="tl" height="220"></canvas>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--truth)"></span>AIS distance</span>
+      <span><span class="sw" style="background:var(--pred)"></span>predicted distance</span>
+      <span><span class="sw" style="background:var(--prob)"></span>P(vessel within 1 km), right axis</span>
+      <span><span class="sw" style="background:var(--near);height:10px"></span>vessel within 1 km (AIS)</span>
+    </div>
+    <div class="controls" style="margin-top:10px">
+      <button id="play">Play</button>
+      <input id="slider" type="range" min="0" value="0">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="panel">
+      <canvas id="hm" height="260"></canvas>
+      <div class="legend"><span>Normalised band energy: x = 247 channels along 2.5 km of cable, y = 100 bands, 4 Hz (bottom) to 98 Hz (top)</span></div>
+    </div>
+    <div class="panel">
+      <dl>
+        <dt>Time (UTC)</dt><dd id="t">-</dd>
+        <dt>P(within 1 km)</dt><dd id="p" class="big">-</dd>
+        <dt>Predicted distance</dt><dd id="d">-</dd>
+        <dt>AIS distance</dt><dd id="y">-</dd>
+        <dt>Closest vessel</dt><dd id="s">-</dd>
+      </dl>
+    </div>
+  </div>
+</main>
+<script>
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let TL = null, cur = 0, timer = null;
+
+function sizeCanvas(c) {
+  const r = window.devicePixelRatio || 1, w = c.clientWidth, h = +c.getAttribute("height");
+  c.width = w * r; c.height = h * r; c.style.height = h + "px";
+  const g = c.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); return [g, w, h];
+}
+
+function drawTimeline() {
+  const [g, w, h] = sizeCanvas(document.getElementById("tl"));
+  // Show a 2-hour window (720 x 10 s) centred on the cursor; the slider spans the whole day.
+  const N = TL.y.length, span = Math.min(720, N);
+  const a = Math.max(0, Math.min(N - span, cur - span / 2)), b = a + span;
+  const view = k => TL[k].slice(a, b);
+  const V = { y: view("y"), dist: view("dist"), prob: view("prob"), time: view("time") };
+  const n = span, pad = 36, cap = 5000;
+  const x = i => pad + (w - 2 * pad) * i / (n - 1);
+  const yd = v => h - 20 - (h - 30) * Math.min(v, cap) / cap;
+  const yp = v => h - 20 - (h - 30) * v;
+  g.fillStyle = css("--near");
+  for (let i = 0; i < n; i++) if (V.y[i] <= 1000) g.fillRect(x(i), 10, Math.max(1, (w - 2 * pad) / n), h - 30);
+  const line = (arr, f, col, lw) => {
+    g.strokeStyle = col; g.lineWidth = lw; g.beginPath();
+    arr.forEach((v, i) => i ? g.lineTo(x(i), f(v)) : g.moveTo(x(i), f(v))); g.stroke();
+  };
+  line(V.y, yd, css("--truth"), 1.5);
+  line(V.dist, yd, css("--pred"), 1.5);
+  line(V.prob, yp, css("--prob"), 1);
+  g.fillStyle = css("--muted"); g.font = "11px system-ui";
+  [0, 1000, 2500, 5000].forEach(v => g.fillText((v / 1000) + " km", 2, yd(v) + 4));
+  [0, 0.5, 1].forEach(v => g.fillText(v.toFixed(1), w - pad + 6, yp(v) + 4));
+  [0, 0.5, 1].forEach(f => { const i = Math.round(f * (n - 1)); g.fillText(V.time[i], x(i) - 22, h - 4); });
+  g.strokeStyle = css("--ink"); g.lineWidth = 1.5; g.beginPath();
+  g.moveTo(x(cur - a), 10); g.lineTo(x(cur - a), h - 20); g.stroke();
+}
+
+function color(v) { // diverging-ish ramp for z-scores
+  const t = Math.max(0, Math.min(1, (v + 2) / 6));
+  const r = Math.round(255 * Math.min(1, 1.6 * t)), gg = Math.round(255 * Math.max(0, 1.6 * t - 0.6)),
+        b = Math.round(255 * Math.max(0, 0.6 - t));
+  return [r, gg, b];
+}
+
+function drawHeatmap(hm) {
+  const c = document.getElementById("hm"), [g, w, h] = sizeCanvas(c);
+  const nc = hm.length, nb = hm[0].length, img = g.createImageData(nc, nb);
+  for (let ch = 0; ch < nc; ch++) for (let b = 0; b < nb; b++) {
+    const [r, gg, bb] = color(hm[ch][b]), k = 4 * ((nb - 1 - b) * nc + ch);
+    img.data[k] = r; img.data[k + 1] = gg; img.data[k + 2] = bb; img.data[k + 3] = 255;
+  }
+  const off = document.createElement("canvas"); off.width = nc; off.height = nb;
+  off.getContext("2d").putImageData(img, 0, 0);
+  g.imageSmoothingEnabled = false; g.drawImage(off, 0, 0, w, h);
+}
+
+const km = v => v >= 1000 ? (v / 1000).toFixed(2) + " km" : Math.round(v) + " m";
+
+async function show(i) {
+  cur = i; document.getElementById("slider").value = i; drawTimeline();
+  const r = await (await fetch("/api/window/" + i)).json();
+  document.getElementById("t").textContent = r.time.slice(11, 19);
+  document.getElementById("p").textContent = (100 * r.prob).toFixed(0) + "%";
+  document.getElementById("d").textContent = km(r.dist);
+  document.getElementById("y").textContent = km(r.y);
+  document.getElementById("s").textContent = r.ship_type + (r.length ? ` (${Math.round(r.length)} m)` : "");
+  drawHeatmap(r.heatmap);
+}
+
+async function init() {
+  TL = await (await fetch("/api/timeline")).json();
+  const s = document.getElementById("slider");
+  s.max = TL.y.length - 1;
+  s.oninput = () => show(+s.value);
+  document.getElementById("play").onclick = e => {
+    if (timer) { clearInterval(timer); timer = null; e.target.textContent = "Play"; return; }
+    e.target.textContent = "Pause";
+    timer = setInterval(() => show((cur + 6) % TL.y.length), 250);
+  };
+  window.onresize = () => show(cur);
+  show(Math.floor(TL.y.length / 2));
+}
+init();
+</script>
+</body>
+</html>

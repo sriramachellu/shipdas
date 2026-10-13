@@ -1,0 +1,38 @@
+{
+  "args": {
+    "epochs": 8,
+    "bs": 128,
+    "lr": 0.002,
+    "width": 32,
+    "dropout": 0.3,
+    "context": 5,
+    "reg_weight": 1.0,
+    "gain_aug": 0.1,
+    "pos_weight": false,
+    "reg_target": "linear",
+    "reg_near_only": true,
+    "days": [
+      "2023-06-16"
+    ],
+    "seed": 0,
+    "tag": "trial_near_lin",
+    "save_model": false,
+    "gpu_data": true,
+    "verbose": false
+  },
+  "mean": {
+    "accuracy": 0.9053,
+    "f1_macro": 0.895,
+    "f1_weighted": 0.9043,
+    "f1_near": 0.8622,
+    "f1_far": 0.9278,
+    "precision_near": 0.9,
+    "recall_near": 0.8275,
+    "auc": 0.9534,
+    "mae": 1296.3069,
+    "mae_near": 151.5072,
+    "median_ae_near": 86.0022,
+    "mae_restricted": 151.5072,
+    "median_ae_restricted": 86.0022
+  }
+}

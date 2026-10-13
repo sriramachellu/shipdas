@@ -1,0 +1,39 @@
+[project]
+name = "shipdas"
+version = "0.1.0"
+description = "Vessel detection and distance estimation from submarine-cable DAS (Marlinks-NS)"
+requires-python = ">=3.12"
+dependencies = [
+    "h5py",
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "scikit-learn",
+    "xgboost",
+    "lightgbm",
+    "matplotlib",
+    "tqdm",
+    "torch",
+    "fastapi",
+    "uvicorn",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+docs = ["reportlab", "pypdf"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff.lint.per-file-ignores]
+"docs/build_guide.py" = ["ISC004"]  # long guide text split over lines
